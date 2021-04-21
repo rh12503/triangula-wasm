@@ -1,0 +1,224 @@
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Go wasm</title>
+    <style>
+        @font-face {
+            font-family: 'Open Sans';
+            font-style: normal;
+            font-weight: 400;
+            src: local(''), url('./assets/open-sans-v18-latin-regular.woff2') format('woff2'), /* Chrome 26+, Opera 23+, Firefox 39+ */ url('./assets/open-sans-v18-latin-regular.woff') format('woff');
+        }
+
+        body, html {
+            margin: 0px;
+            padding: 0px;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+        }
+
+        #renderarea {
+            margin: 0px;
+            padding: 0px;
+            background-color: #e4e4e4;
+            flex: 1;
+            display: block;
+        }
+
+        #top {
+            background-color: white;
+            margin: 0px;
+            padding: 0px;
+            flex: 0 0 60px;
+            display: flex;
+            flex-direction: row;
+        }
+
+        #inputs {
+            width: 100%;
+            height: 100%;
+            margin: 0px;
+            padding: 0px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+        }
+
+        #render {
+            margin: 0px;
+            padding: 0px;
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .input {
+            width: 65px;
+            padding: 4px 6px 4px 6px;
+            margin: 0px;
+            font-size: 12px;
+            font-family: 'Open sans';
+            border: 1px solid #b7bec7;
+            color: #747e8a;
+            background-color: #ffffff;
+            border-radius: 3px;
+            transition: all 0.25s;
+            text-align: right;
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+            margin-left: 7px;
+            margin-right: 20px;
+        }
+
+        .input::-webkit-outer-spin-button, input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        .input:focus {
+            color: #2c3e50;
+            outline: none;
+            border: 1px solid #34495e;
+            box-shadow: none;
+        }
+
+        .input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        #upload {
+            font-size: 12px;
+            font-family: 'Open sans';
+            background-color: #34495e;
+            color: white;
+            border-radius: 3px;
+            padding: 5px 15px 5px 15px;
+            box-sizing: border-box;
+            -moz-box-sizing: border-box;
+            -webkit-box-sizing: border-box;
+            margin-left: 20px;
+            transition: all 0.1s;
+        }
+
+        #upload:hover {
+            background-color: #4d6177;
+            cursor: pointer;
+        }
+
+        #upload:active {
+            background-color: #34485c;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .subhead {
+            margin: 0px;
+            font-size: 12px;
+            color: #2c3e50;
+            font-family: 'Open sans';
+        }
+
+        #logo {
+            flex: 0 0 240px;
+            display: flex;
+            align-items: center;
+            margin-left: 13px;
+        }
+
+        #info {
+            flex: 0 0 240px;
+            display: flex;
+            align-items: center;
+            margin-right: 13px;
+            font-size: 10px;
+            font-family: 'Open Sans';
+            color: #2c3e50;
+            text-align: right;
+        }
+    </style>
+</head>
+
+<body>
+<script src="wasm_exec.js"></script>
+
+<script>
+    (async function loadAndRunGoWasm() {
+        const go = new Go();
+        const response = await fetch("lib.wasm");
+        const buffer = await response.arrayBuffer();
+        const result = await WebAssembly.instantiate(buffer, go.importObject);
+        go.run(result.instance);
+    })()
+</script>
+
+<div id="top">
+    <div id="logo">
+        <a href="https://github.com/RH12503/triangula"><img src="assets/logo.svg" height="35px"></a>
+    </div>
+    <div id="inputs">
+        <p class="subhead">Points</p>
+        <input type="number" class="input" id="points" step="1" value="300">
+        <label id="upload">
+            <input type="file"/>
+            Start
+        </label>
+    </div>
+
+    <div id="info">
+        This is only a preview of Triangula. Recommended to use images smaller than 800px.
+    </div>
+</div>
+<div id="renderarea">
+    <svg id="render" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    </svg>
+</div>
+<script>
+    function generation() {
+        let json = stepAlgorithm();
+        console.log("Call to doSomething took " + (t1 - t0) + " milliseconds.")
+
+        let data = JSON.parse(json)
+
+        let width = data.Width;
+        let height = data.Height;
+
+        var svg = `<svg id="render" viewBox="0 0 ${width} ${height}"
+ xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">`;
+        for (let tri of data.Data) {
+            let c = tri.Color;
+            let t = tri.Triangle.Points;
+
+            svg += `<polygon points="${t[0].X * width},${t[0].Y * height}
+${t[1].X * width},${t[1].Y * height} ${t[2].X * width},${t[2].Y * height}"
+fill="rgb(${c.R * 100}%, ${c.G * 100}%, ${c.B * 100}%)"/>`;
+        }
+        svg += `</svg>`;
+        document.getElementById('render').outerHTML = svg;
+    }
+
+    function uploaded(event) {
+        if (event.target.files && event.target.files[0]) {
+            const reader = new FileReader();
+
+            reader.addEventListener("load", function (e) {
+                initAlgorithm(e.target.result, parseInt(document.getElementById("points").value));
+                setInterval(generation, 0)
+            });
+
+            reader.readAsDataURL(event.target.files[0]);
+        }
+    }
+
+    document.getElementById("upload").addEventListener("change", (event) => uploaded(event));
+</script>
+</body>
+</html>
